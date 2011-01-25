@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+
+<html lang="en">
+	<head>
+		<title>MooTools ART testing</title>
+		<script type="text/javascript" src="mootools-core.js"></script>
+		<script type="text/javascript" src="Color.js"></script>
+		<script type="text/javascript" src="../Source/ART.js"></script>
+		<script type="text/javascript" src="../Source/ART.Path.js"></script>
+		<script type="text/javascript" src="../Source/ART.SVG.js"></script>
+		<script type="text/javascript" src="../Source/ART.VML.js"></script>
+		<script type="text/javascript" src="../Source/ART.Base.js"></script>
+		<script type="text/javascript" src="../Source/ART.Font.js"></script>
+		<script type="text/javascript" src="../Source/ART.Shapes.js"></script>
+		
+		<script type="text/javascript">
+			window.addEvent('domready', function() {
+				var dataPoints = [
+					100, 150, 200, 300, 50, 200, 20, 10, 5, 88
+				];
+				var increment = 50;
+				var maxPoint = 350;
+				
+				var art = new ART((dataPoints.length + 1) * increment, maxPoint);
+				$(document.body).grab(art);
+				
+				var line = new ART.Path();
+				for (var i = 0; i < dataPoints.length; i++) {
+					var point = new ART.Ellipse(5, 5).fill('#fff').stroke('#204a87', 2).moveTo((i + 1) * increment, dataPoints[i]).inject(art);
+					if (i === 0) {
+						line.moveTo((i + 1) * increment, dataPoints[i]);
+					} else {
+						line.lineTo((i + 1) * increment, dataPoints[i]);
+					}
+				}
+				// Draw the line
+				var lineShape = new ART.Shape(line, dataPoints.length * increment, maxPoint).stroke('#f00').inject(art);
+			});
+		</script>
+	</head>
+</html>
