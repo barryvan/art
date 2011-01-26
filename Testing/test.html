@@ -12,30 +12,50 @@
 		<script type="text/javascript" src="../Source/ART.Base.js"></script>
 		<script type="text/javascript" src="../Source/ART.Font.js"></script>
 		<script type="text/javascript" src="../Source/ART.Shapes.js"></script>
+		<script type="text/javascript" src="uiGraph.js"></script>
 		
 		<script type="text/javascript">
 			window.addEvent('domready', function() {
-				var dataPoints = [
-					100, 150, 200, 300, 50, 200, 20, 10, 5, 88
-				];
-				var increment = 50;
-				var maxPoint = 350;
+				var datasetAlpha = [50, 50, 20, 60, 70, 80, 90, 100, 80, 70]; // Red
+				var datasetBeta = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85]; // Green
+				var datasetGamma = [100, 95, 85, 65, 25, 50, 45, 35, 15, 0]; // Blue
 				
-				var art = new ART((dataPoints.length + 1) * increment, maxPoint);
-				$(document.body).grab(art);
-				
-				var line = new ART.Path();
-				for (var i = 0; i < dataPoints.length; i++) {
-					var point = new ART.Ellipse(5, 5).fill('#fff').stroke('#204a87', 2).moveTo((i + 1) * increment, dataPoints[i]).inject(art);
-					if (i === 0) {
-						line.moveTo((i + 1) * increment, dataPoints[i]);
-					} else {
-						line.lineTo((i + 1) * increment, dataPoints[i]);
+				var el = new Element('div', {
+					'styles': {
+						'borderRadius': '8px',
+						'boxShadow': '2px 2px 8px #000',
+						'margin': '100px auto',
+						'width': 600,
+						'height': 300
 					}
-				}
-				// Draw the line
-				var lineShape = new ART.Shape(line, dataPoints.length * increment, maxPoint).stroke('#f00').inject(art);
+				}).inject($(document.body));
+				
+				window.graph = new seqta.ui.LineGraph({
+					xAxis: {
+						labels: [
+							'alpha',
+							'beta',
+							'gamma',
+							'delta',
+							'epsilon',
+							'zeta',
+							'eta',
+							'theta',
+							'iota',
+							'kappa'
+						]
+					}
+				}, el);
+				
+				el.grab(window.graph);
+				
+				graph.draw(datasetAlpha, '#c00');
+				graph.draw(datasetBeta, '#4a8720');
+				graph.draw(datasetGamma, '#204a87');
 			});
 		</script>
 	</head>
+	<body style="background: #222">
+		
+	</body>
 </html>

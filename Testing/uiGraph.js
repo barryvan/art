@@ -20,9 +20,10 @@ seqta.ui.Graph = new Class({
 	Implements: Options,
 	
 	options: {
-		padding: 8,
+		padding: 20,
 		width: 400,
-		height: 200
+		height: 200,
+		font: '10pt Calibri'
 	},
 	
 	art: null,
@@ -36,11 +37,11 @@ seqta.ui.Graph = new Class({
 		
 		if (parent) {
 			var parentSize = parent.getSize();
-			this.options.width = parentSize.x + this.options.padding * 2;
-			this.options.height = parentSize.y + this.options.padding * 2;
+			this.options.width = parentSize.x;
+			this.options.height = parentSize.y;
 		}
 		
-		this.art = new ART(this.options.width + this.options.padding * 2, this.options.height + this.options.padding * 2);
+		this.art = new ART(this.options.width, this.options.height);
 		if (parent) {
 			parent.grab($(this.art));
 		}
@@ -69,23 +70,30 @@ seqta.ui.LineGraph = new Class({
 	Extends: seqta.ui.Graph,
 	
 	options: {
+		background: '#fff',
+		borderRadius: 8,
 		xAxis: {
+			labels: [],
 			drawAxis: true,
 			drawLabels: true,
 			drawGridLines: true,
 			gridColor: '#ccc',
-			axisColor: '#000'
+			axisColor: '#000',
+			labelHeight: 20
 		},
 		yAxis: {
+			interval: 10,
+			//max: null, // TODO!
 			drawAxis: true,
 			drawLabels: true,
 			drawGridLines: true,
 			gridColor: '#ccc',
-			axisColor: '#000'
+			axisColor: '#000',
+			labelWidth: 40
 		},
 		data: {
 			drawPoints: true,
-			pointSize: 5
+			pointSize: 8
 		},
 		highlight: {
 			color: '#000',
@@ -98,7 +106,13 @@ seqta.ui.LineGraph = new Class({
 	_yGridSize: 10,
 	_xGridSize: 10,
 	
-	_highlight: null,
+	_leftOffset: 0,
+	_rightOffset: 0,
+	_topOffset: 0,
+	_bottomOffset: 0,
+	
+	_graphWidth: 0,
+	_graphHeight: 0,
 	
 	_datasets: [],
 	
@@ -106,10 +120,8 @@ seqta.ui.LineGraph = new Class({
 		
 	],
 	
-	initialize: function(options) {
-		this.parent(options);
-		
-		this.art.subscribe('mousemove', this.mousemove, this);
+	initialize: function(options, parent) {
+		this.parent(options, parent);
 	},
 	
 	reset: function() {
@@ -126,10 +138,13 @@ seqta.ui.LineGraph = new Class({
 		});
 		if (this._updateSizes(dataset)) {
 			this.clear();
+			this._drawBackground();
 			this._renderXGrid();
 			this._renderYGrid();
 			this._renderXAxis();
 			this._renderYAxis();
+			this._drawXLabels();
+			this._drawYLabels();
 			for (var i = 0; i < this._datasets.length; i++) {
 				var set = this._datasets[i];
 				this._renderSet(set.data, set.color);
@@ -137,63 +152,117 @@ seqta.ui.LineGraph = new Class({
 		} else {
 			this._renderSet(dataset, colour);
 		}
-		if (!this._highlight) {
-			this._highlight = new ART.Ellipse(this.options.highlight.size, this.options.highlight.size)
-				.stroke(this.options.highlight.color, 2);
-		}
 	},
 	
-	mousemove: function(evt) {
-		// TODO
-		this._highlight.moveTo(evt.clientX - this.options.padding, evt.clientY - this.options.padding).inject(this.art);
+	_drawBackground: function() {
+		var background = new ART.Rectangle(
+			this.options.width,
+			this.options.height,
+			this.options.borderRadius
+		);
+		background.fill(this.options.background);
+		background.inject(this.art);
+	},
+	
+	_mouseoverPoint: function(point, colour) {
+		point.stroke(colour, this.options.data.pointSize / 2);
+	},
+	
+	_mouseoutPoint: function(point) {
+		point.stroke('#fff', this.options.data.pointSize / 2);
 	},
 	
 	_renderXAxis: function() {
 		if (!this.options.xAxis.drawAxis) return;
 		
 		var line = new ART.Path();
-		line.moveTo(0, 0).lineTo(this.options.width + this.options.padding / 2, 0);
-		var lineShape = new ART.Shape(line, this.options.width + this.options.padding / 2, 1) // TODO: Make line width configurable
-			.stroke(this.options.xAxis.axisColor)
-			.moveTo(this.options.padding / 2, this.options.height + this.options.padding)
-			.inject(this.art);
+		line.moveTo(0, 0).lineTo(
+			this._graphWidth,
+			0
+		);
+		var lineShape = new ART.Shape(
+			line,
+			this._graphWidth,
+			1 // TODO: Make line width configurable
+		).stroke(this.options.xAxis.axisColor)
+		 .moveTo(
+				this._leftOffset,
+				this._graphHeight + this._topOffset
+			)
+		 .inject(this.art);
 	},
 	
 	_renderYAxis: function() {
 		if (!this.options.yAxis.drawAxis) return;
 		
 		var line = new ART.Path();
-		line.moveTo(0,0).lineTo(0, this.options.height + this.options.padding / 2);
-		var lineShape = new ART.Shape(line, 1, this.options.height + this.options.padding / 2) // TODO: Make line width configurable
-			.stroke(this.options.yAxis.axisColor)
-			.moveTo(this.options.padding, this.options.padding)
-			.inject(this.art);
+		line.moveTo(0,0).lineTo(
+			0,
+			this._graphHeight
+		);
+		var lineShape = new ART.Shape(
+			line,
+			1, // TODO: Make line width configurable
+			this._graphHeight
+		).stroke(this.options.yAxis.axisColor)
+		 .moveTo(
+				this._leftOffset,
+				this._topOffset
+			)
+		 .inject(this.art);
 	},
 	
+	_drawXLabels: function() {
+		if ((!this.options.xAxis.drawLabels) || (!this.options.xAxis.labels.length)) return;
+		
+		for (var i = 0; i < this.options.xAxis.labels.length; i++) {
+			var datumX = (i + .5) * this._xPixPerPoint + this._leftOffset;
+			var label = new ART.Text(this.options.xAxis.labels[i], this.options.font, 'center');
+			label.fill('#000');
+			label.moveTo(datumX, this.options.height - this._bottomOffset + (this.options.padding / 2));
+			label.inject(this.art);
+		}
+	},
+	
+	_drawYLabels: function() {
+		if (!this.options.yAxis.drawLabels) return;
+		
+		var count = this._graphHeight / this._xGridSize;
+		for (var i = -1; i < count; i++) {
+			var datumY = (i + .5) * this._xGridSize + this._topOffset;
+			var label = new ART.Text(((count - i - 1) * this.options.yAxis.interval).round(), this.options.font, 'right');
+			label.fill('#000');
+			label.moveTo(this._leftOffset - (this.options.padding / 2), datumY);
+			label.inject(this.art);
+		}
+	},
+	
+	// Draw horizontal gridlines
 	_renderXGrid: function() {
 		if (!this.options.xAxis.drawGridLines) return;
 		
-		var count = this.options.height / this._xGridSize;
-		for (var i = 1; i < count; i++) {
+		var count = this._graphHeight / this._xGridSize;
+		for (var i = 0; i < count; i++) {
 			var line = new ART.Path();
-			line.moveTo(0, 0).lineTo(this.options.width, 0);
-			var lineShape = new ART.Shape(line, this.options.width, 1) // TODO: Make line width configurable
+			line.moveTo(0, 0).lineTo(this._graphWidth, 0);
+			var lineShape = new ART.Shape(line, this._graphWidth, 1) // TODO: Make line width configurable
 				.stroke(this.options.xAxis.gridColor)
-				.moveTo(this.options.padding, (this.options.height - (i * this._xGridSize)) + this.options.padding)
+				.moveTo(this._leftOffset, i * this._xGridSize + this._topOffset)
 				.inject(this.art);
 		}
 	},
 	
+	// Draw vertical gridlines
 	_renderYGrid: function() {
 		if (!this.options.yAxis.drawGridLines) return;
 		
-		var count = this.options.width / this._yGridSize;
+		var count = this._graphWidth / this._yGridSize + 1;
 		for (var i = 1; i < count; i++) {
 			var line = new ART.Path();
-			line.moveTo(0, 0).lineTo(0, this.options.height);
-			var lineShape = new ART.Shape(line, 1, this.options.height) // TODO: make line width configurable
+			line.moveTo(0, 0).lineTo(0, this._graphHeight);
+			var lineShape = new ART.Shape(line, 1, this._graphHeight) // TODO: make line width configurable
 				.stroke(this.options.yAxis.gridColor)
-				.moveTo(i * this._yGridSize + this.options.padding, this.options.padding)
+				.moveTo(i * this._yGridSize + this._leftOffset, this._topOffset)
 				.inject(this.art);
 		}
 	},
@@ -208,22 +277,24 @@ seqta.ui.LineGraph = new Class({
 		var points = [];
 		for (var i = 0; i < dataset.length; i++) {
 			var datum = dataset[i];
+			var datumX = (i + .5) * this._xPixPerPoint + this._leftOffset;
+			var datumY = (this._graphHeight - datum * this._yPixPerPoint + this._topOffset);
+			
 			var point = new ART.Ellipse(pointSize, pointSize)
 				.fill(colour)
-				.moveTo(i * this._xPixPerPoint - halfPoint + this.options.padding, (this.options.height - (datum * this._yPixPerPoint)) - halfPoint + this.options.padding);
-			point.subscribe('mouseover', function() {
-				// TODO
-				console.log('[point]', arguments);
-			})
+				.stroke('#fff', pointSize / 2)
+				.moveTo(datumX - halfPoint, datumY - halfPoint);
+			point.subscribe('mouseover', this._mouseoverPoint.pass([point, colour], this));
+			point.subscribe('mouseout', this._mouseoutPoint.pass([point], this));
 			points.push(point);
 			if (!i) {
-				line.moveTo(i * this._xPixPerPoint + this.options.padding, (this.options.height - (datum * this._yPixPerPoint)) + this.options.padding);
+				line.moveTo(datumX, datumY);
 			} else {
-				line.lineTo(i * this._xPixPerPoint + this.options.padding, (this.options.height - (datum * this._yPixPerPoint)) + this.options.padding);
+				line.lineTo(datumX, datumY);
 			}
 		}
 		var lineShape = new ART.Shape(line, this.options.width + this.options.padding * 2, this.options.height + this.options.padding * 2)
-			.stroke(colour)
+			.stroke(colour, 2) // TODO configurable
 			.inject(this.art);
 		for (var i = 0; i < points.length; i++) {
 			points[i].inject(this.art);
@@ -234,10 +305,17 @@ seqta.ui.LineGraph = new Class({
 	_updateSizes: function(dataset) {
 		var result = false;
 		var max = dataset.max();
-		var count = dataset.length - 1;
+		var count = dataset.length;
 		
-		var newYPix = (this.options.height / max).round(2);
-		var newXPix = (this.options.width / count).round(2);
+		this._leftOffset = this._rightOffset = this._topOffset = this._bottomOffset = this.options.padding;
+		this._leftOffset += (this.options.yAxis.drawLabels) ? this.options.yAxis.labelWidth : 0;
+		this._bottomOffset += (this.options.xAxis.drawLabels && this.options.xAxis.labels.length) ? this.options.xAxis.labelHeight : 0;
+		
+		this._graphWidth = this.options.width - this._leftOffset - this._rightOffset;
+		this._graphHeight = this.options.height - this._topOffset - this._bottomOffset;
+		
+		var newYPix = (this._graphHeight / max);
+		var newXPix = (this._graphWidth / count);
 		
 		if (this._yPixPerPoint > 0) {
 			newYPix = Math.min(newYPix, this._yPixPerPoint);
@@ -246,15 +324,11 @@ seqta.ui.LineGraph = new Class({
 			newXPix = Math.min(newXPix, this._xPixPerPoint);
 		}
 		
-		// TODO: these grids seem off.
-		var newYSize = (count / this.options.width);
+		var newYSize = newXPix;
 		while (newYSize < 10) { // TODO: Make this configurable?
 			newYSize = newYSize * 2;
 		}
-		var newXSize = (max / this.options.height);
-		while (newXSize < 10) { // TODO: Make this configurable?
-			newXSize = newXSize * 2;
-		}
+		var newXSize = this.options.yAxis.interval * newYPix;
 		
 		console.log('[ pix.x] ', this._xPixPerPoint, ' => ', newXPix);
 		console.log('[ pix.y] ', this._yPixPerPoint, ' => ', newYPix);
@@ -273,16 +347,3 @@ seqta.ui.LineGraph = new Class({
 		return result;
 	}
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
