@@ -1,20 +1,18 @@
+/*
+---
+name: seqta.ui.Graph
+description: "Graphing capabilities; built on ART"
+authors: ["[Barry van Oudtshoorn](http://barryvan.com.au)"]
+requires: [ART, ART.Base, ART.Font, ART.Path, ART.Shapes]
+provides: [seqta.ui.Graph, seqta.ui.LineGraph]
+...
+*/
+
+(function() {
+
 // Establish namespace if necessary
-window.seqta = window.seqta || {};
+this.seqta = this.seqta || {};
 seqta.ui = seqta.ui || {};
-
-// Utility methods
-
-Array.implement({
-	'max': function() {
-		var result = this[0];
-		for (var i = 1; i < this.length; i++) {
-			if (this[i] > result) {
-				result = this[i];
-			}
-		}
-		return result;
-	}
-})
 
 seqta.ui.Graph = new Class({
 	Implements: Options,
@@ -66,7 +64,7 @@ seqta.ui.Graph = new Class({
 	}
 });
 
-seqta.ui.LineGraph = new Class({
+seqta.ui.Graph.Line = new Class({
 	Extends: seqta.ui.Graph,
 	
 	options: {
@@ -93,11 +91,9 @@ seqta.ui.LineGraph = new Class({
 		},
 		data: {
 			drawPoints: true,
-			pointSize: 8
-		},
-		highlight: {
-			color: '#000',
-			size: 8
+			showLabels: true,
+			pointSize: 10,
+			contain: true
 		}
 	},
 	
@@ -105,6 +101,9 @@ seqta.ui.LineGraph = new Class({
 	_xPixPerPoint: -1,
 	_yGridSize: 10,
 	_xGridSize: 10,
+	_maxDelta: 0,
+	_maxValue: 0,
+	_minValue: 0,
 	
 	_leftOffset: 0,
 	_rightOffset: 0,
@@ -131,10 +130,11 @@ seqta.ui.LineGraph = new Class({
 		this._xPixPerPoint = -1;
 	},
 	
-	draw: function(dataset, colour) {
+	draw: function(dataset, colour, shape) {
 		this._datasets.push({
 			data: dataset,
-			color: colour
+			colour: colour,
+			shape: shape
 		});
 		if (this._updateSizes(dataset)) {
 			this.clear();
@@ -147,10 +147,10 @@ seqta.ui.LineGraph = new Class({
 			this._drawYLabels();
 			for (var i = 0; i < this._datasets.length; i++) {
 				var set = this._datasets[i];
-				this._renderSet(set.data, set.color);
+				this._renderSet(set.data, set.colour, set.shape);
 			}
 		} else {
-			this._renderSet(dataset, colour);
+			this._renderSet(dataset, colour, shape);
 		}
 	},
 	
@@ -164,12 +164,12 @@ seqta.ui.LineGraph = new Class({
 		background.inject(this.art);
 	},
 	
-	_mouseoverPoint: function(point, colour) {
-		point.stroke(colour, this.options.data.pointSize / 2);
+	_mouseoverPoint: function(point, colour, item) {
+		point.stroke(colour, this.options.data.pointSize / 3);
 	},
 	
-	_mouseoutPoint: function(point) {
-		point.stroke('#fff', this.options.data.pointSize / 2);
+	_mouseoutPoint: function(point, item) {
+		point.stroke('#fff', this.options.data.pointSize / 3);
 	},
 	
 	_renderXAxis: function() {
@@ -228,9 +228,16 @@ seqta.ui.LineGraph = new Class({
 		if (!this.options.yAxis.drawLabels) return;
 		
 		var count = this._graphHeight / this._xGridSize;
-		for (var i = -1; i < count; i++) {
-			var datumY = (i + .5) * this._xGridSize + this._topOffset;
-			var label = new ART.Text(((count - i - 1) * this.options.yAxis.interval).round(), this.options.font, 'right');
+		var startAt = this._maxDelta - Math.abs(this._minValue);
+		
+		//var adjustment = Math.abs(this._minValue / this.options.yAxis.interval);
+		var i = count.round();
+		while (i-- > 0) {
+			// Tweak the layout by .7 so that things line up nicely...
+			// Ideally, we'd be able to just align the text vertically. :/
+			var datumY = this._topOffset + (i * this._xGridSize) - 7;
+			var datum = (startAt - (i * this.options.yAxis.interval)).round();
+			var label = new ART.Text(datum, this.options.font, 'right');
 			label.fill('#000');
 			label.moveTo(this._leftOffset - (this.options.padding / 2), datumY);
 			label.inject(this.art);
@@ -267,26 +274,38 @@ seqta.ui.LineGraph = new Class({
 		}
 	},
 	
-	_renderSet: function(dataset, colour) {
+	_renderSet: function(dataset, colour, shape) {
 		// TODO: Make points an instance of ART.Shape that can be specified when
 		// drawing a set. Must take a single parameter: size.
 		var pointSize = this.options.data.pointSize;
 		var halfPoint = (pointSize / 2);
 		
+		shape = shape || ART.Dot;
+		
 		var line = new ART.Path();
 		var points = [];
 		for (var i = 0; i < dataset.length; i++) {
-			var datum = dataset[i];
+			var item = dataset[i];
+			var datum = item.x || item;
+			var label = item.label || datum;
 			var datumX = (i + .5) * this._xPixPerPoint + this._leftOffset;
-			var datumY = (this._graphHeight - datum * this._yPixPerPoint + this._topOffset);
+			var datumY = (this._graphHeight - (datum + Math.abs(this._minValue)) * this._yPixPerPoint + this._topOffset);
 			
-			var point = new ART.Ellipse(pointSize, pointSize)
-				.fill(colour)
-				.stroke('#fff', pointSize / 2)
-				.moveTo(datumX - halfPoint, datumY - halfPoint);
-			point.subscribe('mouseover', this._mouseoverPoint.pass([point, colour], this));
-			point.subscribe('mouseout', this._mouseoutPoint.pass([point], this));
-			points.push(point);
+			if (this.options.data.drawPoints) {
+				var point = new shape(pointSize)
+					.fill(colour)
+					.stroke('#fff', pointSize / 3)
+					.moveTo(datumX - halfPoint, datumY - halfPoint);
+				point.subscribe('mouseover', this._mouseoverPoint.pass([point, colour, item], this));
+				point.subscribe('mouseout', this._mouseoutPoint.pass([point, item], this));
+				if (item.onClick) {
+					point.subscribe('click', item.onClick, item);
+				}
+				if (this.options.data.showLabels) {
+					point.indicate('pointer', label);
+				}
+				points.push(point);
+			}
 			if (!i) {
 				line.moveTo(datumX, datumY);
 			} else {
@@ -304,8 +323,11 @@ seqta.ui.LineGraph = new Class({
 	/* Return true if either changes. */
 	_updateSizes: function(dataset) {
 		var result = false;
-		var max = dataset.max();
 		var count = dataset.length;
+		
+		this._maxValue = Math.max(this._maxValue, this._max(dataset));
+		this._minValue = Math.min(this._minValue, this._min(dataset));
+		this._maxDelta = Math.max(this._maxDelta, Math.abs(this._maxValue) + Math.abs(this._minValue));
 		
 		this._leftOffset = this._rightOffset = this._topOffset = this._bottomOffset = this.options.padding;
 		this._leftOffset += (this.options.yAxis.drawLabels) ? this.options.yAxis.labelWidth : 0;
@@ -314,7 +336,7 @@ seqta.ui.LineGraph = new Class({
 		this._graphWidth = this.options.width - this._leftOffset - this._rightOffset;
 		this._graphHeight = this.options.height - this._topOffset - this._bottomOffset;
 		
-		var newYPix = (this._graphHeight / max);
+		var newYPix = (this._graphHeight / this._maxDelta);
 		var newXPix = (this._graphWidth / count);
 		
 		if (this._yPixPerPoint > 0) {
@@ -332,7 +354,6 @@ seqta.ui.LineGraph = new Class({
 		
 		console.log('[ pix.x] ', this._xPixPerPoint, ' => ', newXPix);
 		console.log('[ pix.y] ', this._yPixPerPoint, ' => ', newYPix);
-		
 		console.log('[size.x] ', this._xGridSize, ' => ', newXSize);
 		console.log('[size.y] ', this._yGridSize, ' => ', newYSize);
 		
@@ -345,5 +366,31 @@ seqta.ui.LineGraph = new Class({
 		this._xGridSize = newXSize;
 		
 		return result;
+	},
+	
+	_max: function(array) {
+		var max = 0, item;
+		for (var i = 0; i < array.length; i++) {
+			item = (array[i].x || array[i]);
+			if (item > max) max = item;
+		}
+		if (this.options.data.contain && this.options.yAxis.interval) {
+			return max + this.options.yAxis.interval;
+		}
+		return max;
+	},
+	
+	_min: function(array) {
+		var min = 0, item;
+		for (var i = 0; i < array.length; i++) {
+			item = (array[i].x || array[i]);
+			if (item < min) min = item;
+		}
+		if (this.options.data.contain && this.options.yAxis.interval) {
+			return min - this.options.yAxis.interval;
+		}
+		return min;
 	}
 });
+
+})();

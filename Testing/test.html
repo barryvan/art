@@ -12,12 +12,37 @@
 		<script type="text/javascript" src="../Source/ART.Base.js"></script>
 		<script type="text/javascript" src="../Source/ART.Font.js"></script>
 		<script type="text/javascript" src="../Source/ART.Shapes.js"></script>
+		<script type="text/javascript" src="ART.Shapes.Extras.js"></script>
 		<script type="text/javascript" src="uiGraph.js"></script>
 		
 		<script type="text/javascript">
 			window.addEvent('domready', function() {
-				var datasetAlpha = [50, 50, 20, 60, 70, 80, 90, 100, 80, 70]; // Red
-				var datasetBeta = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85]; // Green
+				/*var datasetAlpha = [], datasetBeta = [], datasetGamma = [];
+				for (var i = 0; i < 10; i++) {
+					datasetAlpha.push((Math.random() - .5) * 100);
+					datasetBeta.push((Math.random() - .5) * 100);
+					datasetGamma.push({
+						x: (Math.random() - .5) * 100,
+						onClick: function() {
+							console.log('You clicked me!');
+							console.log(this);
+						},
+						label: 'Click me!'
+					});
+				}*/
+				var datasetAlpha = [
+					{
+						x: 150,
+						onClick: function() {
+							alert('pony');
+						}//,
+						//label: 'Pony!'
+					}, {
+						x: 50//,
+						//label: 'Monkey'
+					}, 20, 60, 70, 80, 90, 100, 80, 70
+				];
+				var datasetBeta = [-40, 45, 50, 55, 60, 65, -10, 75, 40, 85]; // Green
 				var datasetGamma = [100, 95, 85, 65, 25, 50, 45, 35, 15, 0]; // Blue
 				
 				var el = new Element('div', {
@@ -30,7 +55,7 @@
 					}
 				}).inject($(document.body));
 				
-				window.graph = new seqta.ui.LineGraph({
+				window.graph = new seqta.ui.Graph.Line({
 					xAxis: {
 						labels: [
 							'alpha',
@@ -44,14 +69,17 @@
 							'iota',
 							'kappa'
 						]
+					},
+					yAxis: {
+						interval: 50
 					}
 				}, el);
 				
 				el.grab(window.graph);
 				
-				graph.draw(datasetAlpha, '#c00');
-				graph.draw(datasetBeta, '#4a8720');
-				graph.draw(datasetGamma, '#204a87');
+				graph.draw(datasetAlpha, '#c00', ART.Dot);
+				graph.draw(datasetBeta, '#4a8720', ART.Square);
+				graph.draw(datasetGamma, '#204a87', ART.Triangle);
 			});
 		</script>
 	</head>
