@@ -15,13 +15,19 @@ this.seqta = this.seqta || {};
 seqta.ui = seqta.ui || {};
 
 seqta.ui.Graph = new Class({
+	
+});
+
+seqta.ui.Graph.Base = new Class({
 	Implements: Options,
 	
 	options: {
 		padding: 20,
 		width: 400,
 		height: 200,
-		font: '10pt Calibri'
+		font: '10pt Calibri',
+		background: '#fff',
+		borderRadius: 8
 	},
 	
 	art: null,
@@ -59,17 +65,25 @@ seqta.ui.Graph = new Class({
 		$(this.art).getChildren().destroy();
 	},
 	
-	draw: function(dataset, colour) {
-		// Stub
+	draw: function() {
+		this._drawBackground();
+	},
+	
+	_drawBackground: function() {
+		var background = new ART.Rectangle(
+			this.options.width,
+			this.options.height,
+			this.options.borderRadius
+		);
+		background.fill(this.options.background);
+		background.inject(this.art);
 	}
 });
 
-seqta.ui.Graph.Line = new Class({
-	Extends: seqta.ui.Graph,
+seqta.ui.Graph.XYGraph = new Class({
+	Extends: seqta.ui.Graph.Base,
 	
 	options: {
-		background: '#fff',
-		borderRadius: 8,
 		xAxis: {
 			labels: [],
 			drawAxis: true,
@@ -81,7 +95,7 @@ seqta.ui.Graph.Line = new Class({
 		},
 		yAxis: {
 			interval: 10,
-			//max: null, // TODO!
+			// max: null, // TODO
 			drawAxis: true,
 			drawLabels: true,
 			drawGridLines: true,
@@ -90,9 +104,7 @@ seqta.ui.Graph.Line = new Class({
 			labelWidth: 40
 		},
 		data: {
-			drawPoints: true,
 			showLabels: true,
-			pointSize: 10,
 			contain: true
 		}
 	},
@@ -101,9 +113,12 @@ seqta.ui.Graph.Line = new Class({
 	_xPixPerPoint: -1,
 	_yGridSize: 10,
 	_xGridSize: 10,
-	_maxDelta: 0,
-	_maxValue: 0,
-	_minValue: 0,
+	_maxYDelta: 0,
+	_maxYValue: 0,
+	_minYValue: 0,
+	_maxXDelta: 0,
+	_maxXValue: 0,
+	_minXValue: 0,
 	
 	_leftOffset: 0,
 	_rightOffset: 0,
@@ -115,9 +130,7 @@ seqta.ui.Graph.Line = new Class({
 	
 	_datasets: [],
 	
-	Binds: [
-		
-	],
+	Binds: [],
 	
 	initialize: function(options, parent) {
 		this.parent(options, parent);
@@ -130,11 +143,12 @@ seqta.ui.Graph.Line = new Class({
 		this._xPixPerPoint = -1;
 	},
 	
-	draw: function(dataset, colour, shape) {
+	// Extra can be, eg., a shape for line charts.
+	draw: function(dataset, colour, extra) {
 		this._datasets.push({
 			data: dataset,
 			colour: colour,
-			shape: shape
+			extra: extra
 		});
 		if (this._updateSizes(dataset)) {
 			this.clear();
@@ -147,29 +161,26 @@ seqta.ui.Graph.Line = new Class({
 			this._drawYLabels();
 			for (var i = 0; i < this._datasets.length; i++) {
 				var set = this._datasets[i];
-				this._renderSet(set.data, set.colour, set.shape);
+				this._renderSet(set.data, set.colour, set.extra);
 			}
 		} else {
-			this._renderSet(dataset, colour, shape);
+			this._renderSet(dataset, colour, extra);
 		}
 	},
 	
-	_drawBackground: function() {
-		var background = new ART.Rectangle(
-			this.options.width,
-			this.options.height,
-			this.options.borderRadius
-		);
-		background.fill(this.options.background);
-		background.inject(this.art);
+	coordsOf: function(x, y) {
+		return {
+			x: xCoordOf(x),
+			y: yCoordOf(y)
+		};
 	},
 	
-	_mouseoverPoint: function(point, colour, item) {
-		point.stroke(colour, this.options.data.pointSize / 3);
+	xCoordOf: function(datum) {
+		return this._graphWidth - (datum + Math.abs(this._minXValue)) * this._xPixPerPoint + this._leftOffset;
 	},
 	
-	_mouseoutPoint: function(point, item) {
-		point.stroke('#fff', this.options.data.pointSize / 3);
+	yCoordOf: function(datum) {
+		return this._graphHeight - (datum + Math.abs(this._minYValue)) * this._yPixPerPoint + this._topOffset;
 	},
 	
 	_renderXAxis: function() {
@@ -228,9 +239,9 @@ seqta.ui.Graph.Line = new Class({
 		if (!this.options.yAxis.drawLabels) return;
 		
 		var count = this._graphHeight / this._xGridSize;
-		var startAt = this._maxDelta - Math.abs(this._minValue);
+		var startAt = this._maxYDelta - Math.abs(this._minYValue);
 		
-		//var adjustment = Math.abs(this._minValue / this.options.yAxis.interval);
+		//var adjustment = Math.abs(this._minYValue / this.options.yAxis.interval);
 		var i = count.round();
 		while (i-- > 0) {
 			// Tweak the layout by .7 so that things line up nicely...
@@ -274,60 +285,21 @@ seqta.ui.Graph.Line = new Class({
 		}
 	},
 	
-	_renderSet: function(dataset, colour, shape) {
-		// TODO: Make points an instance of ART.Shape that can be specified when
-		// drawing a set. Must take a single parameter: size.
-		var pointSize = this.options.data.pointSize;
-		var halfPoint = (pointSize / 2);
-		
-		shape = shape || ART.Dot;
-		
-		var line = new ART.Path();
-		var points = [];
-		for (var i = 0; i < dataset.length; i++) {
-			var item = dataset[i];
-			var datum = item.x || item;
-			var label = item.label || datum;
-			var datumX = (i + .5) * this._xPixPerPoint + this._leftOffset;
-			var datumY = (this._graphHeight - (datum + Math.abs(this._minValue)) * this._yPixPerPoint + this._topOffset);
-			
-			if (this.options.data.drawPoints) {
-				var point = new shape(pointSize)
-					.fill(colour)
-					.stroke('#fff', pointSize / 3)
-					.moveTo(datumX - halfPoint, datumY - halfPoint);
-				point.subscribe('mouseover', this._mouseoverPoint.pass([point, colour, item], this));
-				point.subscribe('mouseout', this._mouseoutPoint.pass([point, item], this));
-				if (item.onClick) {
-					point.subscribe('click', item.onClick, item);
-				}
-				if (this.options.data.showLabels) {
-					point.indicate('pointer', label);
-				}
-				points.push(point);
-			}
-			if (!i) {
-				line.moveTo(datumX, datumY);
-			} else {
-				line.lineTo(datumX, datumY);
-			}
-		}
-		var lineShape = new ART.Shape(line, this.options.width + this.options.padding * 2, this.options.height + this.options.padding * 2)
-			.stroke(colour, 2) // TODO configurable
-			.inject(this.art);
-		for (var i = 0; i < points.length; i++) {
-			points[i].inject(this.art);
-		}
-	},
-	
 	/* Return true if either changes. */
 	_updateSizes: function(dataset) {
 		var result = false;
 		var count = dataset.length;
 		
-		this._maxValue = Math.max(this._maxValue, this._max(dataset));
-		this._minValue = Math.min(this._minValue, this._min(dataset));
-		this._maxDelta = Math.max(this._maxDelta, Math.abs(this._maxValue) + Math.abs(this._minValue));
+		var maxValue = this._max(dataset);
+		var minValue = this._min(dataset);
+		
+		this._maxYValue = Math.max(this._maxYValue, maxValue.y);
+		this._minYValue = Math.min(this._minYValue, minValue.y);
+		this._maxXValue = Math.max(this._maxXvalue, maxValue.x);
+		this._minXValue = Math.min(this._minXValue, minValue.x);
+		
+		this._maxYDelta = Math.max(this._maxYDelta, Math.abs(this._maxYValue) + Math.abs(this._minYValue));
+		this._maxXDelta = Math.max(this._maxXDelta, Math.abs(this._maxXValue) + Math.abs(this._minXValue));
 		
 		this._leftOffset = this._rightOffset = this._topOffset = this._bottomOffset = this.options.padding;
 		this._leftOffset += (this.options.yAxis.drawLabels) ? this.options.yAxis.labelWidth : 0;
@@ -336,7 +308,7 @@ seqta.ui.Graph.Line = new Class({
 		this._graphWidth = this.options.width - this._leftOffset - this._rightOffset;
 		this._graphHeight = this.options.height - this._topOffset - this._bottomOffset;
 		
-		var newYPix = (this._graphHeight / this._maxDelta);
+		var newYPix = (this._graphHeight / this._maxYDelta);
 		var newXPix = (this._graphWidth / count);
 		
 		if (this._yPixPerPoint > 0) {
@@ -369,28 +341,161 @@ seqta.ui.Graph.Line = new Class({
 	},
 	
 	_max: function(array) {
-		var max = 0, item;
+		var xMax = 0, yMax = 0, xItem, yItem;
 		for (var i = 0; i < array.length; i++) {
-			item = (array[i].x || array[i]);
-			if (item > max) max = item;
+			xItem = (array[i].x || array[i].y || array[i]);
+			yItem = (array[i].y || array[i].x || array[i]);
+			if (xItem > xMax) xMax = xItem;
+			if (yItem > yMax) yMax = yItem;
 		}
-		if (this.options.data.contain && this.options.yAxis.interval) {
-			return max + this.options.yAxis.interval;
+		if (this.options.data.contain) {
+			if (this.options.xAxis.interval) {
+				xMax += this.options.xAxis.interval;
+			}
+			if (this.options.yAxis.interval) {
+				yMax += this.options.yAxis.interval;
+			}
 		}
-		return max;
+		console.log('[_max]', xMax, yMax);
+		return {
+			x: xMax,
+			y: yMax
+		};
 	},
 	
 	_min: function(array) {
-		var min = 0, item;
+		var yMin = 0, xMin = 0, xItem, yItem;
 		for (var i = 0; i < array.length; i++) {
-			item = (array[i].x || array[i]);
-			if (item < min) min = item;
+			xItem = (array[i].x || array[i].y || array[i]);
+			yItem = (array[i].y || array[i].x || array[i]);
+			if (xItem < xMin) xMin = xItem;
+			if (yItem < yMin) yMin = yItem;
 		}
-		if (this.options.data.contain && this.options.yAxis.interval) {
-			return min - this.options.yAxis.interval;
+		if (this.options.data.contain) {
+			if (this.options.xAxis.interval) {
+				xMin -= this.options.xAxis.interval;
+			}
+			if (this.options.yAxis.interval) {
+				yMin -= this.options.yAxis.interval;
+			}
 		}
-		return min;
+		console.log('[_min]', xMin, yMin);
+		return {
+			x: xMin,
+			y: yMin
+		};
 	}
 });
+
+seqta.ui.Graph.XGraph = new Class({
+	Extends: seqta.ui.Graph.XYGraph,
+	
+	coordsOf: function(datum, index) {
+		return {
+			x: (index + .5) * this._xPixPerPoint + this._leftOffset,
+			y: this.yCoordOf(datum)
+		}
+	}
+});
+
+seqta.ui.Graph.Line = new Class({
+	Extends: seqta.ui.Graph.XGraph,
+	
+	options: {
+		data: {
+			drawPoints: true,
+			pointSize: 10
+		}
+	},
+	
+	Binds: [],
+	
+	_mouseoverPoint: function(point, colour) {
+		point.stroke(colour, this.options.data.pointSize / 3);
+	},
+	
+	_mouseoutPoint: function(point) {
+		point.stroke('#fff', this.options.data.pointSize / 3);
+	},
+	
+	_renderSet: function(dataset, colour, shape) {
+		var pointSize = this.options.data.pointSize;
+		var halfPoint = (pointSize / 2);
+		
+		shape = shape || ART.Dot;
+		
+		var line = new ART.Path();
+		var points = [];
+		for (var i = 0; i < dataset.length; i++) {
+			var item = dataset[i];
+			var datum = item.y || item.x || item;
+			var label = item.label || datum;
+			var coords = this.coordsOf(datum, i);
+			
+			if (this.options.data.drawPoints) {
+				var point = new shape(pointSize)
+					.fill(colour)
+					.stroke('#fff', pointSize / 3)
+					.moveTo(coords.x - halfPoint, coords.y - halfPoint);
+				point.subscribe('mouseover', this._mouseoverPoint.pass([point, colour], this));
+				point.subscribe('mouseout', this._mouseoutPoint.pass(point, this));
+				if (item.onClick) {
+					point.subscribe('click', item.onClick, item);
+				}
+				if (this.options.data.showLabels) {
+					point.indicate('pointer', label);
+				}
+				points.push(point);
+			}
+			if (!i) {
+				line.moveTo(coords.x, coords.y);
+			} else {
+				line.lineTo(coords.x, coords.y);
+			}
+		}
+		var lineShape = new ART.Shape(line, this.options.width + this.options.padding * 2, this.options.height + this.options.padding * 2)
+			.stroke(colour, 2) // TODO configurable
+			.inject(this.art);
+		for (var i = 0; i < points.length; i++) {
+			points[i].inject(this.art);
+		}
+	}
+});
+
+seqta.ui.Graph.VertBar = new Class({
+	Extends: seqta.ui.Graph.XGraph,
+	
+	options: {
+		data: {
+			spacing: 4,
+			radius: 2
+		}
+	},
+	
+	Binds: [],
+	
+	_renderSet: function(dataset, colour) {
+		var halfGrid = this._yGridSize / 2;
+		for (var i = 0; i < dataset.length; i++) {
+			var item = dataset[i];
+			var datum = item.y || item.x || item;
+			var label = item.label || datum;
+			var coords = this.coordsOf(datum, i);
+			
+			var bar = new ART.Rectangle(this._yGridSize - (this.options.data.spacing * 2), datum * this._yPixPerPoint, this.options.data.radius)
+				//.stroke(#fff, 2)
+				.fill(colour)
+				.inject(this.art);
+			bar.moveTo(coords.x - halfGrid + this.options.data.spacing, coords.y);
+			if (item.onClick) {
+				bar.subscribe('click', item.onClick, item);
+			}
+			if (this.options.data.showLabels) {
+				bar.indicate('pointer', label);
+			}
+			bar.inject(this.art);
+		}
+	}
+})
 
 })();
