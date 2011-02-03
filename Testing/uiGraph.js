@@ -27,14 +27,32 @@ seqta.ui.Graph.Base = new Class({
 		height: 200,
 		font: '10pt Calibri',
 		background: '#fff',
-		borderRadius: 8
+		borderRadius: 8,
+		legend: {
+			drawLegend: true,
+			placement: 'bottom', // ('top', 'right', 'bottom', 'left')
+			size: 20 // Width for right/left; height for top/bottom
+		},
+		colors: []
 	},
 	
 	art: null,
 	
+	_colourIndex: -1,
+	
 	Binds: [
 	
 	],
+	
+	_leftOffset: 0,
+	_rightOffset: 0,
+	_topOffset: 0,
+	_bottomOffset: 0,
+	
+	_graphWidth: 0,
+	_graphHeight: 0,
+	
+	_datasets: [],
 	
 	initialize: function(options, parent) {
 		this.setOptions(options);
@@ -48,6 +66,13 @@ seqta.ui.Graph.Base = new Class({
 		this.art = new ART(this.options.width, this.options.height);
 		if (parent) {
 			parent.grab($(this.art));
+		}
+		
+		if (!this.options.colors.length) {
+			this.options.colors = [ // From LibreOffice. :)
+				'#004586', '#ff420e', '#ffd320', '#597d1c', '#7e0021', '#83caff',
+				'#314004', '#aecf00', '#4b1f6f', '#ff950e', '#c5000b', '#0084d1'
+			]
 		}
 	},
 	
@@ -77,6 +102,48 @@ seqta.ui.Graph.Base = new Class({
 		);
 		background.fill(this.options.background);
 		background.inject(this.art);
+	},
+	
+	_drawLegend: function(legend, colour, index, extra) {
+		if (!legend) return;
+		if (!this.options.legend.drawLegend) return;
+		var x, y;
+		
+		var pointSize = (this.options.data && this.options.data.pointSize) || 8;
+		
+		switch (this.options.legend.placement) {
+			case 'top':
+				x = this.options.padding + (index * 80) + pointSize * 2; // TODO!
+				y = this.options.padding;
+				break;
+			case 'right':
+				x = this.options.width - this._rightOffset + this.options.padding;
+				y = this.options.padding + (index * pointSize * 2);
+				break;
+			case 'left':
+				x = this.options.padding;
+				y = this.options.padding + (index * pointSize * 2);
+				break;
+			case 'bottom': /* fall through */
+			default:
+				x = this.options.padding + (index * 80) + pointSize * 2;
+				y = this.options.height - this.options.padding;
+				break;
+		}
+		
+		var shape = (extra && extra.shape) || ART.Dot;
+		shape = (typeOf(shape) === 'class') ? shape : ART.Dot;
+		
+		var point = new shape(pointSize)
+			.fill(colour)
+			.stroke(colour, pointSize / 3)
+			.moveTo(x, y)
+			.inject(this.art)
+		
+		var label = new ART.Text(legend, this.options.font, 'left');
+		label.fill('#000');
+		label.moveTo(x + pointSize * 2, y);
+		label.inject(this.art);
 	}
 });
 
@@ -120,16 +187,6 @@ seqta.ui.Graph.XYGraph = new Class({
 	_maxXValue: 0,
 	_minXValue: 0,
 	
-	_leftOffset: 0,
-	_rightOffset: 0,
-	_topOffset: 0,
-	_bottomOffset: 0,
-	
-	_graphWidth: 0,
-	_graphHeight: 0,
-	
-	_datasets: [],
-	
 	Binds: [],
 	
 	initialize: function(options, parent) {
@@ -145,6 +202,7 @@ seqta.ui.Graph.XYGraph = new Class({
 	
 	// Extra can be, eg., a shape for line charts.
 	draw: function(dataset, colour, extra) {
+		colour = colour ? colour : this.options.colors[this._colourIndex = (this._colourIndex + 1) % this.options.colors.length];
 		this._datasets.push({
 			data: dataset,
 			colour: colour,
@@ -162,9 +220,11 @@ seqta.ui.Graph.XYGraph = new Class({
 			for (var i = 0; i < this._datasets.length; i++) {
 				var set = this._datasets[i];
 				this._renderSet(set.data, set.colour, set.extra);
+				this._drawLegend(set.extra.legend, set.colour, i, set.extra);
 			}
 		} else {
 			this._renderSet(dataset, colour, extra);
+			this._drawLegend(extra.legend, colour, this._datasets.length - 1, extra);
 		}
 	},
 	
@@ -305,6 +365,24 @@ seqta.ui.Graph.XYGraph = new Class({
 		this._leftOffset += (this.options.yAxis.drawLabels) ? this.options.yAxis.labelWidth : 0;
 		this._bottomOffset += (this.options.xAxis.drawLabels && this.options.xAxis.labels.length) ? this.options.xAxis.labelHeight : 0;
 		
+		if (this.options.legend.drawLegend) {
+			switch (this.options.legend.placement) {
+				case 'top':
+					this._topOffset += this.options.legend.size;
+					break;
+				case 'right':
+					this._rightOffset += this.options.legend.size;
+					break;
+				case 'left':
+					this._leftOffset += this.options.legend.size;
+					break;
+				case 'bottom': /* fall through */
+				default:
+					this._bottomOffset += this.options.legend.size;
+					break;
+			}
+		}
+		
 		this._graphWidth = this.options.width - this._leftOffset - this._rightOffset;
 		this._graphHeight = this.options.height - this._topOffset - this._bottomOffset;
 		
@@ -323,11 +401,6 @@ seqta.ui.Graph.XYGraph = new Class({
 			newYSize = newYSize * 2;
 		}
 		var newXSize = this.options.yAxis.interval * newYPix;
-		
-		console.log('[ pix.x] ', this._xPixPerPoint, ' => ', newXPix);
-		console.log('[ pix.y] ', this._yPixPerPoint, ' => ', newYPix);
-		console.log('[size.x] ', this._xGridSize, ' => ', newXSize);
-		console.log('[size.y] ', this._yGridSize, ' => ', newYSize);
 		
 		result = result || (newYPix != this._yPixPerPoint) || (newXPix != this._xPixPerPoint);
 		result = result || (newYSize != this._yGridSize) || (newXSize != this._xGridSize);
@@ -356,7 +429,6 @@ seqta.ui.Graph.XYGraph = new Class({
 				yMax += this.options.yAxis.interval;
 			}
 		}
-		console.log('[_max]', xMax, yMax);
 		return {
 			x: xMax,
 			y: yMax
@@ -379,7 +451,6 @@ seqta.ui.Graph.XYGraph = new Class({
 				yMin -= this.options.yAxis.interval;
 			}
 		}
-		console.log('[_min]', xMin, yMin);
 		return {
 			x: xMin,
 			y: yMin
@@ -404,7 +475,7 @@ seqta.ui.Graph.Line = new Class({
 	options: {
 		data: {
 			drawPoints: true,
-			pointSize: 10
+			pointSize: 8
 		}
 	},
 	
@@ -418,22 +489,24 @@ seqta.ui.Graph.Line = new Class({
 		point.stroke('#fff', this.options.data.pointSize / 3);
 	},
 	
-	_renderSet: function(dataset, colour, shape) {
+	_renderSet: function(dataset, colour, extra) {
 		var pointSize = this.options.data.pointSize;
 		var halfPoint = (pointSize / 2);
 		
-		shape = shape || ART.Dot;
+		var shape = extra.shape || ART.Dot;
+		shape = (typeOf(extra.shape) === 'class') ? extra.shape : ART.Dot;
 		
 		var line = new ART.Path();
 		var points = [];
+		var item, datum, label, coords, point;
 		for (var i = 0; i < dataset.length; i++) {
-			var item = dataset[i];
-			var datum = item.y || item.x || item;
-			var label = item.label || datum;
-			var coords = this.coordsOf(datum, i);
+			item = dataset[i];
+			datum = item.y || item.x || item;
+			label = item.label || datum;
+			coords = this.coordsOf(datum, i);
 			
 			if (this.options.data.drawPoints) {
-				var point = new shape(pointSize)
+				point = new shape(pointSize)
 					.fill(colour)
 					.stroke('#fff', pointSize / 3)
 					.moveTo(coords.x - halfPoint, coords.y - halfPoint);
@@ -476,13 +549,14 @@ seqta.ui.Graph.VertBar = new Class({
 	
 	_renderSet: function(dataset, colour) {
 		var halfGrid = this._yGridSize / 2;
+		var item, datum, label, coords, bar;
 		for (var i = 0; i < dataset.length; i++) {
-			var item = dataset[i];
-			var datum = item.y || item.x || item;
-			var label = item.label || datum;
-			var coords = this.coordsOf(datum, i);
+			item = dataset[i];
+			datum = item.y || item.x || item;
+			label = item.label || datum;
+			coords = this.coordsOf(datum, i);
 			
-			var bar = new ART.Rectangle(this._yGridSize - (this.options.data.spacing * 2), datum * this._yPixPerPoint, this.options.data.radius)
+			bar = new ART.Rectangle(this._yGridSize - (this.options.data.spacing * 2), datum * this._yPixPerPoint, this.options.data.radius)
 				//.stroke(#fff, 2)
 				.fill(colour)
 				.inject(this.art);
@@ -494,6 +568,123 @@ seqta.ui.Graph.VertBar = new Class({
 				bar.indicate('pointer', label);
 			}
 			bar.inject(this.art);
+		}
+	}
+});
+
+seqta.ui.Graph.Pie = new Class({
+	Extends: seqta.ui.Graph.Base,
+	
+	options: {
+		data: {
+			pointSize: 8,
+			showLabels: true
+		}
+	},
+	
+	Binds: [],
+	
+	_total: 0,
+	
+	draw: function(dataset, colours) {
+		colours = (colours && colours.length) ? colours : this.options.colors;
+		this._updateSizes();
+		this._updateTotal(dataset);
+		this.clear();
+		this._drawBackground();
+		this._renderSet(dataset, colours);
+		this._drawLegend(dataset, colours);
+	},
+	
+	_renderSet: function(dataset, colours) {
+		var item, datum, offset = 0, shape, length, colour, label, text;
+		var factor = 360 / this._total;
+		var size = Math.min(this._graphWidth, this._graphHeight) / 2;
+		var group = new ART.Group();
+		var pill;
+		for (var i = 0; i < dataset.length; i++) {
+			colour = colours[i % colours.length];
+			item = dataset[i];
+			datum = Math.abs(item.x || item.y || item);
+			label = item.label || datum;
+			length = factor * datum;
+			
+			shape = new ART.Wedge(0, size, offset, offset + length);
+			shape.fill(colour);
+			shape.stroke('#fff', 2); // TODO customisable
+			shape.inject(group);
+			
+			shape.subscribe('mouseover', this._highlight.pass([shape, colour]));
+			shape.subscribe('mouseout', this._lowlight.pass([shape, colour]));
+			if (item.onClick) {
+				shape.subscribe('click', item.onClick, item);
+			}
+			if (this.options.data.showLabels) {
+				shape.indicate('pointer', label);
+			}
+			
+			offset += length;
+		}
+		var x = (this._graphWidth - size * 2) / 2;
+		var y = (this._graphHeight - size * 2) / 2;
+		
+		group.moveTo(this._leftOffset + x, this._topOffset + y)
+		group.inject(this.art);
+	},
+	
+	_highlight: function(shape, colour) {
+		// Move it to the top of the stack
+		var parent = shape.element.parentNode;
+		shape.eject();
+		shape.inject(parent);
+		shape.stroke(colour, 8); // TODO customisable
+	},
+	
+	_lowlight: function(shape, colour) {
+		shape.stroke('#fff', 2); // TODO customisable
+	},
+	
+	_updateSizes: function() {
+		this._leftOffset = this._rightOffset = this._topOffset = this._bottomOffset = this.options.padding;
+		
+		if (this.options.legend.drawLegend) {
+			switch (this.options.legend.placement) {
+				case 'top':
+					this._topOffset += this.options.legend.size;
+					break;
+				case 'right':
+					this._rightOffset += this.options.legend.size;
+					break;
+				case 'left':
+					this._leftOffset += this.options.legend.size;
+					break;
+				case 'bottom': /* fall through */
+				default:
+					this._bottomOffset += this.options.legend.size;
+					break;
+			}
+		}
+		
+		this._graphWidth = this.options.width - this._leftOffset - this._rightOffset;
+		this._graphHeight = this.options.height - this._topOffset - this._bottomOffset;
+	},
+	
+	_updateTotal: function(dataset) {
+		this._total = 0;
+		var item;
+		for (var i = 0; i < dataset.length; i++) {
+			item = dataset[i];
+			this._total += Math.abs(item.x || item.y || item);
+		}
+	},
+	
+	_drawLegend: function(dataset, colours) {
+		var item, label, colour;
+		for (var i = 0; i < dataset.length; i++) {
+			item = dataset[i];
+			label = item.label || Math.abs(item.x || item.y || item);
+			colour = colours[i % colours.length];
+			this.parent(label, colour, i);
 		}
 	}
 })

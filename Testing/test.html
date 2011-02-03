@@ -35,11 +35,11 @@
 						y: 10,
 						onClick: function() {
 							alert('pony');
-						}//,
-						//label: 'Pony!'
+						},
+						label: 'Pony!'
 					}, {
-						y: 20//,
-						//label: 'Monkey'
+						y: 20,
+						label: 'Monkey'
 					}, 30, 40, 50, 60, 70, 80, 90, 100
 				];
 				var datasetBeta = [20, 30, 60, 70, -20, 20, 40, 80, -20, 20]; // Green
@@ -74,17 +74,49 @@
 						},
 						yAxis: {
 							interval: 10
+						},
+						legend: {
+							//placement: 'top',
+							//size: 30
+							placement: 'right',
+							size: 80
 						}
 					}, el);
-					graph.draw(datasetAlpha, '#c00', ART.Dot);
-					graph.draw(datasetBeta, '#4a8720', ART.Square);
-					graph.draw(datasetGamma, '#204a87', ART.Triangle);
+					switch (className) {
+						case seqta.ui.Graph.Pie:
+							graph.draw(datasetGamma);
+							break;
+						case seqta.ui.Graph.VertBar:
+							graph.draw(datasetBeta, null, {
+								legend: 'Beta',
+								shape: ART.Dot
+							});
+							break;
+						case seqta.ui.Graph.Line: /* fall through */
+						default:
+							graph.draw(datasetAlpha, null, {
+								legend: 'Alpha',
+								shape: ART.Dot
+							});
+							graph.draw(datasetBeta, null, {
+								legend: 'Beta',
+								shape: ART.Square
+							});
+							graph.draw(datasetGamma, null, {
+								legend: 'Gamma',
+								shape: ART.Triangle
+							});
+							break;
+					}
 				};
 				
 				var selector = new Element('select', {
 					events: {
 						'change': function(evt) {
 							switch ($(evt.target).get('value').toLowerCase()) {
+								case 'pie':
+									renderGraph(seqta.ui.Graph.Pie);
+									break;
 								case 'vertical bar':
 									renderGraph(seqta.ui.Graph.VertBar);
 									break;
@@ -97,11 +129,17 @@
 					}
 				}).inject($(document.body));
 				selector.grab(new Element('option', {
+					value: 'line',
 					html: 'Line'
 				}));
 				selector.grab(new Element('option', {
+					value: 'vertical bar',
 					html: 'Vertical bar'
 				}));
+				selector.grab(new Element('option', {
+					value: 'pie',
+					html: 'Pie'
+				}))
 				
 				renderGraph(seqta.ui.Graph.Line);
 			});
