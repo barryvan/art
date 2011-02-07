@@ -158,7 +158,9 @@ seqta.ui.Graph.XYGraph = new Class({
 			drawGridLines: true,
 			gridColor: '#ccc',
 			axisColor: '#000',
-			labelHeight: 20
+			labelHeight: 20,
+			lineWidth: 1,
+			labelRotation: 0
 		},
 		yAxis: {
 			interval: 10,
@@ -168,7 +170,8 @@ seqta.ui.Graph.XYGraph = new Class({
 			drawGridLines: true,
 			gridColor: '#ccc',
 			axisColor: '#000',
-			labelWidth: 40
+			labelWidth: 40,
+			lineWidth: 1
 		},
 		data: {
 			showLabels: true,
@@ -254,7 +257,7 @@ seqta.ui.Graph.XYGraph = new Class({
 		var lineShape = new ART.Shape(
 			line,
 			this._graphWidth,
-			1 // TODO: Make line width configurable
+			this.options.yAxis.lineWidth || 1
 		).stroke(this.options.xAxis.axisColor)
 		 .moveTo(
 				this._leftOffset,
@@ -273,7 +276,7 @@ seqta.ui.Graph.XYGraph = new Class({
 		);
 		var lineShape = new ART.Shape(
 			line,
-			1, // TODO: Make line width configurable
+			this.options.yAxis.lineWidth || 1,
 			this._graphHeight
 		).stroke(this.options.yAxis.axisColor)
 		 .moveTo(
@@ -286,12 +289,26 @@ seqta.ui.Graph.XYGraph = new Class({
 	_drawXLabels: function() {
 		if ((!this.options.xAxis.drawLabels) || (!this.options.xAxis.labels.length)) return;
 		
-		for (var i = 0; i < this.options.xAxis.labels.length; i++) {
-			var datumX = (i + .5) * this._xPixPerPoint + this._leftOffset;
-			var label = new ART.Text(this.options.xAxis.labels[i], this.options.font, 'center');
+		var rotation = this.options.xAxis.labelRotation;
+		
+		var count = (this._graphWidth / this._yGridSize).round();
+		// TODO: Don't use labels.length: instead, use longest set of data we have
+		var multiplicator = this.options.xAxis.labels.length / count;
+		var halfMult = multiplicator / 2;
+		var j = 0;
+		var text = '';
+		for (var i = 0; i < count; i++) {
+			j = (i * multiplicator).round();
+			text = this.options.xAxis.labels[j];
+			if (!text) continue;
+			var datumX = (j + halfMult) * this._xPixPerPoint + this._leftOffset;
+			var label = new ART.Text(text, this.options.font, 'center');
 			label.fill('#000');
 			label.moveTo(datumX, this.options.height - this._bottomOffset + (this.options.padding / 2));
 			label.inject(this.art);
+			if (rotation) {
+				label.rotateTo(rotation);
+			}
 		}
 	},
 	
@@ -319,12 +336,14 @@ seqta.ui.Graph.XYGraph = new Class({
 	_renderXGrid: function() {
 		if (!this.options.xAxis.drawGridLines) return;
 		
+		var lineWidth = this.options.xAxis.lineWidth || 1;
+		
 		var count = this._graphHeight / this._xGridSize;
 		for (var i = 0; i < count; i++) {
 			var line = new ART.Path();
 			line.moveTo(0, 0).lineTo(this._graphWidth, 0);
-			var lineShape = new ART.Shape(line, this._graphWidth, 1) // TODO: Make line width configurable
-				.stroke(this.options.xAxis.gridColor)
+			var lineShape = new ART.Shape(line, this._graphWidth, lineWidth)
+				.stroke(this.options.xAxis.gridColor, lineWidth)
 				.moveTo(this._leftOffset, i * this._xGridSize + this._topOffset)
 				.inject(this.art);
 		}
@@ -334,12 +353,14 @@ seqta.ui.Graph.XYGraph = new Class({
 	_renderYGrid: function() {
 		if (!this.options.yAxis.drawGridLines) return;
 		
+		var lineWidth = this.options.yAxis.lineWidth || 1;
+		
 		var count = this._graphWidth / this._yGridSize + 1;
 		for (var i = 1; i < count; i++) {
 			var line = new ART.Path();
 			line.moveTo(0, 0).lineTo(0, this._graphHeight);
-			var lineShape = new ART.Shape(line, 1, this._graphHeight) // TODO: make line width configurable
-				.stroke(this.options.yAxis.gridColor)
+			var lineShape = new ART.Shape(line, lineWidth, this._graphHeight) // TODO: make line width configurable
+				.stroke(this.options.yAxis.gridColor, lineWidth)
 				.moveTo(i * this._yGridSize + this._leftOffset, this._topOffset)
 				.inject(this.art);
 		}
@@ -475,7 +496,8 @@ seqta.ui.Graph.Line = new Class({
 	options: {
 		data: {
 			drawPoints: true,
-			pointSize: 8
+			pointSize: 8,
+			lineWidth: 2
 		}
 	},
 	
@@ -492,6 +514,7 @@ seqta.ui.Graph.Line = new Class({
 	_renderSet: function(dataset, colour, extra) {
 		var pointSize = this.options.data.pointSize;
 		var halfPoint = (pointSize / 2);
+		var lineWidth = this.options.data.lineWidth || 2;
 		
 		var shape = extra.shape || ART.Dot;
 		shape = (typeOf(extra.shape) === 'class') ? extra.shape : ART.Dot;
@@ -527,7 +550,7 @@ seqta.ui.Graph.Line = new Class({
 			}
 		}
 		var lineShape = new ART.Shape(line, this.options.width + this.options.padding * 2, this.options.height + this.options.padding * 2)
-			.stroke(colour, 2) // TODO configurable
+			.stroke(colour, lineWidth)
 			.inject(this.art);
 		for (var i = 0; i < points.length; i++) {
 			points[i].inject(this.art);
@@ -557,7 +580,6 @@ seqta.ui.Graph.VertBar = new Class({
 			coords = this.coordsOf(datum, i);
 			
 			bar = new ART.Rectangle(this._yGridSize - (this.options.data.spacing * 2), datum * this._yPixPerPoint, this.options.data.radius)
-				//.stroke(#fff, 2)
 				.fill(colour)
 				.inject(this.art);
 			bar.moveTo(coords.x - halfGrid + this.options.data.spacing, coords.y);

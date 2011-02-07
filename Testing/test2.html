@@ -46,16 +46,16 @@
 				var datasetGamma = [10, 9, 8, 6, 2, 5, 4, 3, 1, 0]; // Blue
 				
 				var labels = [
-					'Academic',
-					'Affirmation',
-					'Award',
-					'Behaviour',
-					'General',
-					'Level Down',
-					'Level Up',
-					'Detention',
-					'Suspension',
-					'Uniform'
+					'2010-01',
+					'2010-02',
+					'2010-03',
+					'2010-04',
+					'2010-05',
+					'2010-06',
+					'2010-07',
+					'2010-08',
+					'2010-09',
+					'2010-10'
 				];
 				
 				var el = new Element('div', {
@@ -100,18 +100,18 @@
 							break;
 						case seqta.ui.Graph.Line: /* fall through */
 						default:
-							/*graph.draw(datasetAlpha, null, {
-								legend: 'Alpha',
+							graph.draw(datasetAlpha, null, {
+								legend: 'Uniform',
 								shape: ART.Dot
-							});*/
+							});
 							graph.draw(datasetBeta, null, {
-								legend: 'Beta',
+								legend: 'Detention',
 								shape: ART.Square
 							});
-							/*graph.draw(datasetGamma, null, {
-								legend: 'Gamma',
+							graph.draw(datasetGamma, null, {
+								legend: 'Suspension',
 								shape: ART.Triangle
-							});*/
+							});
 							break;
 					}
 				};
