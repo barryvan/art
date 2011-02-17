@@ -223,7 +223,9 @@ seqta.ui.Graph.XYGraph = new Class({
 			for (var i = 0; i < this._datasets.length; i++) {
 				var set = this._datasets[i];
 				this._renderSet(set.data, set.colour, set.extra);
-				this._drawLegend(set.extra.legend, set.colour, i, set.extra);
+				if (set.extra && set.extra.legend) {
+					this._drawLegend(set.extra.legend, set.colour, i, set.extra);
+				}
 			}
 		} else {
 			this._renderSet(dataset, colour, extra);
@@ -324,7 +326,7 @@ seqta.ui.Graph.XYGraph = new Class({
 			// Tweak the layout by .7 so that things line up nicely...
 			// Ideally, we'd be able to just align the text vertically. :/
 			var datumY = this._topOffset + (i * this._xGridSize) - 7;
-			var datum = (startAt - (i * this.options.yAxis.interval)).round();
+			var datum = '' + (startAt - (i * this.options.yAxis.interval)).round();
 			var label = new ART.Text(datum, this.options.font, 'right');
 			label.fill('#000');
 			label.moveTo(this._leftOffset - (this.options.padding / 2), datumY);
@@ -418,6 +420,7 @@ seqta.ui.Graph.XYGraph = new Class({
 		}
 		
 		var newYSize = newXPix;
+		newYSize = Math.max(newYSize, 1);
 		while (newYSize < 10) { // TODO: Make this configurable?
 			newYSize = newYSize * 2;
 		}
@@ -516,15 +519,20 @@ seqta.ui.Graph.Line = new Class({
 		var halfPoint = (pointSize / 2);
 		var lineWidth = this.options.data.lineWidth || 2;
 		
-		var shape = extra.shape || ART.Dot;
-		shape = (typeOf(extra.shape) === 'class') ? extra.shape : ART.Dot;
+		var shape = (extra && extra.shape) || ART.Dot;
+		shape = (typeOf(shape) === 'class') ? shape : ART.Dot;
 		
 		var line = new ART.Path();
 		var points = [];
 		var item, datum, label, coords, point;
+		var restart = true;
 		for (var i = 0; i < dataset.length; i++) {
 			item = dataset[i];
 			datum = item.y || item.x || item;
+			if (!datum) {
+				restart = true;
+				continue;
+			}
 			label = item.label || datum;
 			coords = this.coordsOf(datum, i);
 			
@@ -543,11 +551,12 @@ seqta.ui.Graph.Line = new Class({
 				}
 				points.push(point);
 			}
-			if (!i) {
+			if (restart) {
 				line.moveTo(coords.x, coords.y);
 			} else {
 				line.lineTo(coords.x, coords.y);
 			}
+			restart = false;
 		}
 		var lineShape = new ART.Shape(line, this.options.width + this.options.padding * 2, this.options.height + this.options.padding * 2)
 			.stroke(colour, lineWidth)
