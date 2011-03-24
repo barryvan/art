@@ -47,29 +47,48 @@ function parse(path){
 };
 
 function visitCurve(sx, sy, c1x, c1y, c2x, c2y, ex, ey, lineTo){
-	var ax = sx - c1x,    ay = sy - c1y,
-		bx = c1x - c2x,   by = c1y - c2y,
-		cx = c2x - ex,    cy = c2y - ey,
-		dx = ex - sx,     dy = ey - sy;
+	var gx = ex - sx, gy = ey - sy,
+		g = gx * gx + gy * gy,
+		v1, v2, cx, cy, u;
 
-	// TODO: Faster algorithm without sqrts
-	var err = Math.sqrt(ax * ax + ay * ay) +
-	          Math.sqrt(bx * bx + by * by) +
-	          Math.sqrt(cx * cx + cy * cy) -
-	          Math.sqrt(dx * dx + dy * dy);
+	cx = c1x - sx; cy = c1y - sy;
+	u = cx * gx + cy * gy;
 
-	if (err <= 0.0001){
+	if (u > g){
+		cx -= gx;
+		cy -= gy;
+	} else if (u > 0 && g != 0){
+		cx -= u/g * gx;
+		cy -= u/g * gy;
+	}
+
+	v1 = cx * cx + cy * cy;
+
+	cx = c2x - sx; cy = c2y - sy;
+	u = cx * gx + cy * gy;
+
+	if (u > g){
+		cx -= gx;
+		cy -= gy;
+	} else if (u > 0 && g != 0){
+		cx -= u/g * gx;
+		cy -= u/g * gy;
+	}
+
+	v2 = cx * cx + cy * cy;
+
+	if (v1 < 0.01 && v2 < 0.01){
 		lineTo(sx, sy, ex, ey);
 		return;
 	}
 
 	// Split curve
-	var s1x =   (c1x + c2x) / 2,   s1y = (c1y + c2y) / 2,
-	    l1x =   (c1x + sx) / 2,    l1y = (c1y + sy) / 2,
-	    l2x =   (l1x + s1x) / 2,   l2y = (l1y + s1y) / 2,
-	    r2x =   (ex + c2x) / 2,    r2y = (ey + c2y) / 2,
-	    r1x =   (r2x + s1x) / 2,   r1y = (r2y + s1y) / 2,
-	    l2r1x = (l2x + r1x) / 2,   l2r1y = (l2y + r1y) / 2;
+	var s1x =   (c1x + c2x) * 0.5,   s1y =   (c1y + c2y) * 0.5,
+	    l1x =   (c1x + sx)  * 0.5,   l1y =   (c1y + sy)  * 0.5,
+	    l2x =   (l1x + s1x) * 0.5,   l2y =   (l1y + s1y) * 0.5,
+	    r2x =   (ex + c2x)  * 0.5,   r2y =   (ey + c2y)  * 0.5,
+	    r1x =   (r2x + s1x) * 0.5,   r1y =   (r2y + s1y) * 0.5,
+	    l2r1x = (l2x + r1x) * 0.5,   l2r1y = (l2y + r1y) * 0.5;
 
 	// TODO: Manual stack if necessary. Currently recursive without tail optimization.
 	visitCurve(sx, sy, l1x, l1y, l2x, l2y, l2r1x, l2r1y, lineTo);
@@ -232,19 +251,18 @@ var arc = function(c, cc){
 
 var curve = function(t, q, c){
 	return function(c1x, c1y, c2x, c2y, ex, ey){
-		var args = Array.slice(arguments), l = args.length;
-		args.unshift(l < 4 ? t : l < 6 ? q : c);
-		return this.push.apply(this, args);
+		var l = arguments.length, k = l < 4 ? t : l < 6 ? q : c;
+		return this.push(k, c1x, c1y, c2x, c2y, ex, ey);
 	};
 };
 
 /* Path Class */
 
-ART.Path = new Class({
+ART.Path = ART.Class({
 	
 	initialize: function(path){
 		if (path instanceof ART.Path){ //already a path, copying
-			this.path = Array.slice(path.path);
+			this.path = Array.prototype.slice.call(path.path);
 			this.cache = path.cache;
 		} else {
 			this.path = (path == null) ? [] : parse(path);
@@ -254,7 +272,7 @@ ART.Path = new Class({
 	
 	push: function(){ //modifying the current path resets the memoized values.
 		this.cache = {};
-		this.path.push(Array.slice(arguments));
+		this.path.push(Array.prototype.slice.call(arguments));
 		return this;
 	},
 	
@@ -301,7 +319,7 @@ ART.Path = new Class({
 		var parts = this.path;
 		
 		for (i = 0; i < parts.length; i++){
-			var v = Array.slice(parts[i]), f = v.shift(), l = f.toLowerCase();
+			var v = Array.prototype.slice.call(parts[i]), f = v.shift(), l = f.toLowerCase();
 			var refX = l == f ? X : 0, refY = l == f ? Y : 0;
 			
 			if (l != 'm' && l != 'z' && inX == null){

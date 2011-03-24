@@ -3,7 +3,7 @@
 name: ART.SVG
 description: "SVG implementation for ART"
 provides: [ART.SVG, ART.SVG.Group, ART.SVG.Shape, ART.SVG.Image, ART.SVG.Text]
-requires: [ART, ART.Element, ART.Container, ART.Transform, ART.Path]
+requires: [ART, ART.Color, ART.Element, ART.Container, ART.Transform, ART.Path]
 ...
 */
 
@@ -20,10 +20,7 @@ var ua = navigator && navigator.userAgent,
 
 // SVG Base Class
 
-ART.SVG = new Class({
-
-	Extends: ART.Element,
-	Implements: ART.Container,
+ART.SVG = ART.Class(ART.Element, ART.Container, {
 
 	initialize: function(width, height){
 		var element = this.element = createElement('svg');
@@ -51,14 +48,10 @@ ART.SVG = new Class({
 
 // SVG Element Class
 
-ART.SVG.Element = new Class({
-	
-	Extends: ART.Element,
-	
-	Implements: ART.Transform,
+ART.SVG.Element = ART.Class(ART.Element, ART.Transform, {
 
 	initialize: function(tag){
-		this.uid = String.uniqueID();
+		this.uid = ART.uniqueID();
 		var element = this.element = createElement(tag);
 		element.setAttribute('id', 'e' + this.uid);
 	},
@@ -109,13 +102,12 @@ ART.SVG.Element = new Class({
 
 // SVG Group Class
 
-ART.SVG.Group = new Class({
-	
-	Extends: ART.SVG.Element,
-	Implements: ART.Container,
-	
+ART.SVG.Group = ART.Class(ART.SVG.Element, ART.Container, {
+
+	element_initialize: ART.SVG.Element.prototype.initialize,
+
 	initialize: function(width, height){
-		this.parent('g');
+		this.element_initialize('g');
 		this.width = width;
 		this.height = height;
 		this.defs = createElement('defs');
@@ -126,30 +118,34 @@ ART.SVG.Group = new Class({
 
 // SVG Base Shape Class
 
-ART.SVG.Base = new Class({
-	
-	Extends: ART.SVG.Element,
+ART.SVG.Base = ART.Class(ART.SVG.Element, {
+
+	element_initialize: ART.SVG.Element.prototype.initialize,
 
 	initialize: function(tag){
-		this.parent(tag);
+		this.element_initialize(tag);
 		this.fill();
 		this.stroke();
 	},
 	
 	/* insertions */
+
+	element_inject: ART.SVG.Element.prototype.inject,
 	
 	inject: function(container){
 		this.eject();
 		this.container = container;
 		this._injectBrush('fill');
 		this._injectBrush('stroke');
-		this.parent(container);
+		this.element_inject(container);
 		return this;
 	},
+
+	element_eject: ART.SVG.Element.prototype.eject,
 	
 	eject: function(){
 		if (this.container){
-			this.parent();
+			this.element_eject();
 			this._ejectBrush('fill');
 			this._ejectBrush('stroke');
 			this.container = null;
@@ -159,7 +155,7 @@ ART.SVG.Base = new Class({
 	
 	_injectBrush: function(type){
 		if (!this.container) return;
-		var brush = this[type + 'Brush'];
+		var brush = type == 'fill' ? this.fillBrush : this.strokeBrush;
 		if (brush) this.container.defs.appendChild(brush);
 	},
 	
@@ -175,7 +171,10 @@ ART.SVG.Base = new Class({
 		this._ejectBrush(type);
 
 		var brush = createElement(tag);
-		this[type + 'Brush'] = brush;
+		if (type == 'fill')
+			this.fillBrush = brush;
+		else
+			this.strokeBrush = brush;
 
 		var id = type + '-brush-e' + this.uid;
 		brush.setAttribute('id', id);
@@ -191,7 +190,7 @@ ART.SVG.Base = new Class({
 		var gradient = this._createBrush(type, style);
 
 		var addColor = function(offset, color){
-			color = Color.detach(color);
+			color = ART.Color.detach(color);
 			var stop = createElement('stop');
 			stop.setAttribute('offset', offset);
 			stop.setAttribute('stop-color', color[0]);
@@ -219,7 +218,7 @@ ART.SVG.Base = new Class({
 			element.setAttribute(type, 'none');
 			element.removeAttribute(type + '-opacity');
 		} else {
-			color = Color.detach(color);
+			color = ART.Color.detach(color);
 			element.setAttribute(type, color[0]);
 			element.setAttribute(type + '-opacity', color[1]);
 		}
@@ -295,12 +294,12 @@ ART.SVG.Base = new Class({
 		image.setAttribute('preserveAspectRatio', 'none'); // none, xMidYMid slice, xMidYMid meet
 
 		if (color1 != null){
-			color1 = new Color(color1);
+			color1 = new ART.Color(color1);
 			if (color2 == null){
-				color2 = new Color(color1);
+				color2 = new ART.Color(color1);
 				color2.alpha = 0;
 			} else {
-				color2 = new Color(color2);
+				color2 = new ART.Color(color2);
 			}
 
 			var r = (color1.red - color2.red) / (255 * 3),
@@ -360,18 +359,18 @@ ART.SVG.Base = new Class({
 
 // SVG Shape Class
 
-ART.SVG.Shape = new Class({
-	
-	Extends: ART.SVG.Base,
-	
+ART.SVG.Shape = ART.Class(ART.SVG.Base, {
+
+	base_initialize: ART.SVG.Base.prototype.initialize,
+
 	initialize: function(path, width, height){
-		this.parent('path');
+		this.base_initialize('path');
 		this.element.setAttribute('fill-rule', 'evenodd');
 		this.width = width;
 		this.height = height;
 		if (path != null) this.draw(path);
 	},
-	
+
 	draw: function(path, width, height){
 		if (!(path instanceof ART.Path)) path = new ART.Path(path);
 		this.element.setAttribute('d', path.toSVG());
@@ -382,12 +381,12 @@ ART.SVG.Shape = new Class({
 
 });
 
-ART.SVG.Image = new Class({
-	
-	Extends: ART.SVG.Base,
-	
+ART.SVG.Image = ART.Class(ART.SVG.Base, {
+
+	base_initialize: ART.SVG.Base.prototype.initialize,
+
 	initialize: function(src, width, height){
-		this.parent('image');
+		this.base_initialize('image');
 		if (arguments.length == 3) this.draw.apply(this, arguments);
 	},
 	
@@ -423,12 +422,12 @@ function splitCurve(sx, sy, p1x, p1y, p2x, p2y, x, y){
 	splitPath.push('C', p1x, p1y, p2x, p2y, x, y);
 };
 
-ART.SVG.Text = new Class({
+ART.SVG.Text = ART.Class(ART.SVG.Base, {
 
-	Extends: ART.SVG.Base,
+	base_initialize: ART.SVG.Base.prototype.initialize,
 
 	initialize: function(text, font, alignment, path){
-		this.parent('text');
+		this.base_initialize('text');
 		this.draw.apply(this, arguments);
 	},
 	
@@ -522,16 +521,20 @@ ART.SVG.Text = new Class({
 	
 	// TODO: Unify path injection with gradients and imagefills
 
+	base_inject: ART.SVG.Base.prototype.inject,
+
 	inject: function(container){
-		this.parent(container);
+		this.base_inject(container);
 		this._injectPaths();
 		return this;
 	},
+
+	base_eject: ART.SVG.Base.prototype.eject,
 	
 	eject: function(){
 		if (this.container){
 			this._ejectPaths();
-			this.parent();
+			this.base_eject();
 			this.container = null;
 		}
 		return this;
@@ -555,7 +558,7 @@ ART.SVG.Text = new Class({
 	
 	_createPaths: function(path){
 		this._ejectPaths();
-		var id = 'p' + String.uniqueID() + '-';
+		var id = 'p' + ART.uniqueID() + '-';
 		
 		splitPaths = []; splitPath = ['M', 0, 0];
 		path.visit(splitLine, splitCurve, null, splitMove);

@@ -22,12 +22,12 @@ var VML = function(){
 
 };
 
-var MODE = SVG() ? 'SVG' : VML() ? 'VML' : null;
+var MODE = SVG() ? ART.SVG : VML() ? ART.VML : null;
 if (!MODE) return;
 
-ART.Shape = new Class({Extends: ART[MODE].Shape});
-ART.Group = new Class({Extends: ART[MODE].Group});
-ART.Text = new Class({Extends: ART[MODE].Text});
-ART.implement({Extends: ART[MODE]});
+ART.Shape = MODE.Shape;
+ART.Group = MODE.Group;
+ART.Text = MODE.Text;
+ART.prototype = MODE.prototype;
 
 })();

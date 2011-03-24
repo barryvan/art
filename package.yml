@@ -1,6 +1,6 @@
 name: "ART"
 
-version: "0.8.7"
+version: "0.9.dev"
 
 web: "[mootools.net](http://mootools.net)"
 
@@ -14,6 +14,7 @@ authors: ["[Valerio Proietti](http://mad4milk.net)"]
 
 sources:
   - "Source/ART.js"
+  - "Source/ART.Color.js"
   - "Source/ART.SVG.js"
   - "Source/ART.VML.js"
   - "Source/ART.Base.js"

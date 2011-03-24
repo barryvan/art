@@ -8,12 +8,13 @@ requires: [ART.Path, ART.Shape]
 ...
 */
 
-ART.Rectangle = new Class({
-
-	Extends: ART.Shape,
+ART.Rectangle = ART.Class(ART.Shape, {
+	
+	shape_initialize: ART.Shape.prototype.initialize,
+	shape_draw: ART.Shape.prototype.draw,
 	
 	initialize: function(width, height, radius){
-		this.parent();
+		this.shape_initialize();
 		if (width != null && height != null) this.draw(width, height, radius);
 	},
 	
@@ -56,27 +57,33 @@ ART.Rectangle = new Class({
 		
 		path.close();
 
-		return this.parent(path, width, height);
+		return this.shape_draw(path, width, height);
 	}
 
 });
 
-ART.Pill = new Class({
-	
-	Extends: ART.Rectangle,
-	
+ART.Pill = ART.Class(ART.Rectangle, {
+
+	rectangle_draw: ART.Rectangle.prototype.draw,
+
+	initialize: function(width, height){
+		this.shape_initialize();
+		if (width != null && height != null) this.draw(width, height);
+	},
+
 	draw: function(width, height){
-		return this.parent(width, height, ((width < height) ? width : height) / 2);
+		return this.rectangle_draw(width, height, ((width < height) ? width : height) / 2);
 	}
 	
 });
 
-ART.Ellipse = new Class({
-	
-	Extends: ART.Shape,
+ART.Ellipse = ART.Class(ART.Shape, {
+
+	shape_initialize: ART.Shape.prototype.initialize,
+	shape_draw: ART.Shape.prototype.draw,
 	
 	initialize: function(width, height){
-		this.parent();
+		this.shape_initialize();
 		if (width != null && height != null) this.draw(width, height);
 	},
 	
@@ -87,17 +94,18 @@ ART.Ellipse = new Class({
 		
 		path.close();
 		
-		return this.parent(path, width, height);
+		return this.shape_draw(path, width, height);
 	}
 
 });
 
-ART.Wedge = new Class({
+ART.Wedge = ART.Class(ART.Shape, {
 
-	Extends: ART.Shape,
+	shape_initialize: ART.Shape.prototype.initialize,
+	shape_draw: ART.Shape.prototype.draw,
 
 	initialize: function(innerRadius, outerRadius, startAngle, endAngle){
-		this.parent();
+		this.shape_initialize();
 		if (innerRadius != null || outerRadius != null) this.draw(innerRadius, outerRadius, startAngle, endAngle);
 	},
 
@@ -130,7 +138,7 @@ ART.Wedge = new Class({
 		}
 
 		path.close();
-		return this.parent(path, or * 2, or * 2);
+		return this.shape_draw(path, or * 2, or * 2);
 	}
 
 });

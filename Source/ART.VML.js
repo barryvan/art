@@ -4,7 +4,7 @@ name: ART.VML
 description: "VML implementation for ART"
 authors: ["[Simo Kinnunen](http://twitter.com/sorccu)", "[Valerio Proietti](http://mad4milk.net)", "[Sebastian Markbåge](http://calyptus.eu/)"]
 provides: [ART.VML, ART.VML.Group, ART.VML.Shape, ART.VML.Text]
-requires: [ART, ART.Element, ART.Container, ART.Transform, ART.Path]
+requires: [ART, ART.Color, ART.Element, ART.Container, ART.Transform, ART.Path]
 ...
 */
 
@@ -16,10 +16,7 @@ var defaultBox = { left: 0, top: 0, width: 500, height: 500 };
 
 // VML Base Class
 
-ART.VML = new Class({
-
-	Extends: ART.Element,
-	Implements: ART.Container,
+ART.VML = ART.Class(ART.Element, ART.Container, {
 	
 	initialize: function(width, height){
 		this.vml = document.createElement('vml');
@@ -92,14 +89,10 @@ ART.VML.init = function(document){
 
 // VML Element Class
 
-ART.VML.Element = new Class({
-	
-	Extends: ART.Element,
-	
-	Implements: ART.Transform,
+ART.VML.Element = ART.Class(ART.Element, ART.Transform, {
 	
 	initialize: function(tag){
-		this.uid = String.uniqueID();
+		this.uid = ART.uniqueID();
 		if (!(tag in styledTags)) styleTag(tag);
 
 		var element = this.element = document.createElement('av:' + tag);
@@ -107,22 +100,30 @@ ART.VML.Element = new Class({
 	},
 	
 	/* dom */
+
+	art_element_inject: ART.Element.prototype.inject,
 	
 	inject: function(container){
 		this.eject();
 		this.container = container;
-		container.children.include(this);
+		container.children.push(this);
 		this._transform();
-		this.parent(container);
+		this.art_element_inject(container);
 		
 		return this;
 	},
 
+	art_element_eject: ART.Element.prototype.eject,
+
 	eject: function(){
 		if (this.container){
-			this.container.children.erase(this);
+			var siblings = this.container.children,
+			    i = siblings.length;
+			while (i--)
+				if (siblings[i] === this)
+					siblings.splice(i, 1);
 			this.container = null;
-			this.parent();
+			this.art_element_eject();
 		}
 		return this;
 	},
@@ -151,28 +152,31 @@ ART.VML.Element = new Class({
 
 // VML Group Class
 
-ART.VML.Group = new Class({
+ART.VML.Group = ART.Class(ART.VML.Element, ART.Container, {
 	
-	Extends: ART.VML.Element,
-	Implements: ART.Container,
+	element_initialize: ART.VML.Element.prototype.initialize,
 	
 	initialize: function(width, height){
-		this.parent('group');
+		this.element_initialize('group');
 		this.width = width;
 		this.height = height;
 		this.children = [];
 	},
 	
 	/* dom */
+
+	element_inject: ART.VML.Element.prototype.inject,
 	
 	inject: function(container){
-		this.parent(container);
+		this.element_inject(container);
 		this._transform();
 		return this;
 	},
+
+	element_eject: ART.VML.Element.prototype.eject,
 	
 	eject: function(){
-		this.parent();
+		this.element_eject();
 		return this;
 	},
 	
@@ -197,12 +201,12 @@ ART.VML.Group = new Class({
 
 // VML Base Shape Class
 
-ART.VML.Base = new Class({
+ART.VML.Base = ART.Class(ART.VML.Element, {
 
-	Extends: ART.VML.Element,
-	
+	element_initialize: ART.VML.Element.prototype.initialize,
+
 	initialize: function(tag){
-		this.parent(tag);
+		this.element_initialize(tag);
 		var element = this.element;
 		
 		var skew = this.skewElement = document.createElement('av:skew');
@@ -351,7 +355,7 @@ ART.VML.Base = new Class({
 		var colors = [], color1, color2;
 
 		var addColor = function(offset, color){
-			color = Color.detach(color);
+			color = ART.Color.detach(color);
 			if (color1 == null) color1 = color2 = color;
 			else color2 = color;
 			colors.push(offset + ' ' + color[0]);
@@ -377,11 +381,11 @@ ART.VML.Base = new Class({
 	},
 	
 	_setColor: function(type, color){
-		var element = this[type + 'Element'];
+		var element = type == 'fill' ? this.fillElement : this.strokeElement;
 		if (color == null){
 			element.on = false;
 		} else {
-			color = Color.detach(color);
+			color = ART.Color.detach(color);
 			element.color = color[0];
 			element.opacity = color[1];
 			element.on = true;
@@ -458,8 +462,8 @@ ART.VML.Base = new Class({
 	fillImage: function(url, width, height, left, top, color1, color2){
 		var fill = this.fillElement;
 		if (color1 != null){
-			color1 = Color.detach(color1);
-			if (color2 != null) color2 = Color.detach(color2);
+			color1 = ART.Color.detach(color1);
+			if (color2 != null) color2 = ART.Color.detach(color2);
 			fill.type = 'pattern';
 			fill.color = color1[0];
 			fill.color2 = color2 == null ? color1[0] : color2[0];
@@ -506,12 +510,12 @@ ART.VML.Base = new Class({
 
 // VML Shape Class
 
-ART.VML.Shape = new Class({
+ART.VML.Shape = ART.Class(ART.VML.Base, {
 
-	Extends: ART.VML.Base,
+	base_initialize: ART.VML.Base.prototype.initialize,
 	
 	initialize: function(path, width, height){
-		this.parent('shape');
+		this.base_initialize('shape');
 
 		var p = this.pathElement = document.createElement('av:path');
 		p.gradientshapeok = true;
@@ -556,21 +560,6 @@ ART.VML.Shape = new Class({
 		}
 
 		this.element.path = vml + 'e';
-	},
-
-	fill: function(){
-		this._redraw();
-		return this.parent.apply(this, arguments);
-	},
-
-	fillLinear: function(){
-		this._redraw();
-		return this.parent.apply(this, arguments);
-	},
-
-	fillImage: function(){
-		this._redraw();
-		return this.parent.apply(this, arguments);
 	},
 
 	fillRadial: function(stops, focusX, focusY, radiusX, radiusY, centerX, centerY){
@@ -619,12 +608,12 @@ ART.VML.Shape = new Class({
 
 var fontAnchors = { start: 'left', middle: 'center', end: 'right' };
 
-ART.VML.Text = new Class({
+ART.VML.Text = ART.Class(ART.VML.Base, {
 
-	Extends: ART.VML.Base,
+	base_initialize: ART.VML.Base.prototype.initialize,
 
 	initialize: function(text, font, alignment, path){
-		this.parent('shape');
+		this.base_initialize('shape');
 		
 		var p = this.pathElement = document.createElement('av:path');
 		p.textpathok = true;
@@ -755,18 +744,14 @@ function close(){
 	path.push('x');
 };
 
-ART.Path.implement({
-
-	toVML: function(precision){
-		if (this.cache.vml == null){
-			path = [];
-			p = precision;
-			this.visit(lineTo, curveTo, arcTo, moveTo, close);
-			this.cache.vml = path.join(' ');
-		}
-		return this.cache.vml;
+ART.Path.prototype.toVML = function(precision){
+	if (this.cache.vml == null){
+		path = [];
+		p = precision;
+		this.visit(lineTo, curveTo, arcTo, moveTo, close);
+		this.cache.vml = path.join(' ');
 	}
-
-});
+	return this.cache.vml;
+};
 
 })();
