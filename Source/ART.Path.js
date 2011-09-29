@@ -2,7 +2,7 @@
 ---
 name: ART.Path
 description: "Class to generate a valid SVG path using method calls."
-authors: ["[Valerio Proietti](http://mad4milk.net)", "[Sebastian Markbåge](http://calyptus.eu/)"]
+authors: ["[Valerio Proietti](http://mad4milk.net)", "[Sebastian Markb??ge](http://calyptus.eu/)"]
 provides: [ART.Path]
 requires: [ART, ART.Transform]
 ...
@@ -318,7 +318,7 @@ ART.Path = ART.Class({
 		
 		var parts = this.path;
 		
-		for (i = 0; i < parts.length; i++){
+		for (var i = 0; i < parts.length; i++){
 			var v = Array.prototype.slice.call(parts[i]), f = v.shift(), l = f.toLowerCase();
 			var refX = l == f ? X : 0, refY = l == f ? Y : 0;
 			

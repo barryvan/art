@@ -2,7 +2,7 @@
 ---
 name: ART.VML
 description: "VML implementation for ART"
-authors: ["[Simo Kinnunen](http://twitter.com/sorccu)", "[Valerio Proietti](http://mad4milk.net)", "[Sebastian Markbåge](http://calyptus.eu/)"]
+authors: ["[Simo Kinnunen](http://twitter.com/sorccu)", "[Valerio Proietti](http://mad4milk.net)", "[Sebastian Markb??ge](http://calyptus.eu/)"]
 provides: [ART.VML, ART.VML.Group, ART.VML.Shape, ART.VML.Text]
 requires: [ART, ART.Color, ART.Element, ART.Container, ART.Transform, ART.Path]
 ...

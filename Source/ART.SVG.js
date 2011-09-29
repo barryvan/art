@@ -504,18 +504,6 @@ ART.SVG.Text = ART.Class(ART.SVG.Base, {
 			element.appendChild(row);
 		}
 		
-		// Measure
-		// TODO: Move to lazy ES5 left/top/width/height/bottom/right property getters
-		var bb;
-		try { bb = element.getBBox(); } catch (x){ }
-		if (!bb || !bb.width) bb = this._whileInDocument(element.getBBox, element);
-		
-		this.left = bb.x;
-		this.top = bb.y;
-		this.width = bb.width;
-		this.height = bb.height;
-		this.right = bb.x + bb.width;
-		this.bottom = bb.y + bb.height;
 		return this;
 	},
 	
@@ -589,6 +577,21 @@ ART.SVG.Text = ART.Class(ART.SVG.Base, {
 		if (container) this.inject(container);
 		if (parent) parent.insertBefore(element, sibling);
 		return result;
+	},
+	
+	measure: function() {
+		var element = this.element, bb;
+		try { bb = element.getBBox(); } catch (x){ }
+		if (!bb || !bb.width) bb = this._whileInDocument(element.getBBox, element);
+		
+		this.left = bb.x;
+		this.top = bb.y;
+		this.width = bb.width;
+		this.height = bb.height;
+		this.right = bb.x + bb.width;
+		this.bottom = bb.y + bb.height;
+		
+		return { left: bb.x, top: bb.y, width: bb.width, height: bb.height, right: bb.x + bb.width, bottom: bb.y + bb.height };
 	}
 
 });

@@ -1,7 +1,7 @@
 /*
 ---
 name: ART.Color
-description: Class to create and manipulate colors. Includes HSL «-» HSB «-» RGB «-» HEX conversions. Supports alpha for each type.
+description: Class to create and manipulate colors. Includes HSL ??-?? HSB ??-?? RGB ??-?? HEX conversions. Supports alpha for each type.
 requires: [ART]
 provides: [ART.Color]
 ...
